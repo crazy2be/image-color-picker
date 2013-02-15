@@ -3,145 +3,191 @@
 <head>
     <title>Drag and drop, automatic upload</title>
     <style>
-    #holder {
-        border: 10px dashed #ccc;
-        width: 300px;
-        min-height: 300px;
-        margin: 20px auto;
-    }
-    #holder.hover {
-        border: 10px dashed #0c0;
-    }
-    #holder img {
-        display: block;
-        margin: 10px auto;
-    }
-    #holder p {
-        margin: 10px;
-        font-size: 14px;
-    }
-    progress {
-        width: 100%;
-    }
-    progress:after {
-        content: '%';
-    }
-    .fail {
-        background: #c00;
-        padding: 2px;
-        color: #fff;
-    }
-    .hidden {
-        display: none !important;
-    }
+#info {
+    position: absolute;
+    z-index: 10;
+    top: 0px;
+    left: 0px;
+    width: 100px;
+    bottom: 0px;
+    background: #ddd;
+    box-shadow: 3px 0px 3px #888;
+}
+#image-pane {
+    position: absolute;
+    top: 0px;
+    left: 100px;
+    right: 0px;
+    bottom: 0px;
+    overflow: auto;
+}
+#image-pane * {
+    -webkit-user-drag: none;
+}
+#image-pane.dragover {
+    border: 10px solid yellow;
+}
+#image-pane.loading {
+    background: #eee;
+}
+#image-pane.loading img {
+    opacity: 0.25;
+}
+table {
+    width: 100%;
+    height: 100%;
+}
+#content {
+    text-align: center;
+    vertical-align: middle;
+}
     </style>
 </head>
 
 <body>
-    <article>
-        <div id="holder">
-        </div>
-        <p id="upload" class="hidden"><label>Drag &amp; drop not supported, but you can still upload via this input field:<br><input type="file"></label></p>
-        <p id="filereader">File API &amp; FileReader API not supported</p>
-        <p id="formdata">XHR2's FormData is not supported</p>
-        <p id="progress">XHR2's upload progress isn't supported</p>
-        <p>Upload progress: <progress id="uploadprogress" min="0" max="100" value="0">0</progress></p>
-        <p>Drag an image from your desktop on to the drop zone above to see the browser both render the preview, but also upload automatically to this server.</p>
-    </article>
+    <div id="info"></div>
+    <div id="image-pane">
+        <table>
+            <tr>
+                <td id="content"></td>
+            </tr>
+        </table>
+    </div>
     <script>
-var holder = document.getElementById('holder'),
-tests = {
-    filereader: typeof FileReader != 'undefined',
-    dnd: 'draggable' in document.createElement('span'),
-    formdata: !!window.FormData,
-        progress: "upload" in new XMLHttpRequest
-},
-support = {
-    filereader: document.getElementById('filereader'),
-    formdata: document.getElementById('formdata'),
-        progress: document.getElementById('progress')
-},
-acceptedTypes = {
-    'image/png': true,
-    'image/jpeg': true,
-    'image/gif': true
-},
-progress = document.getElementById('uploadprogress'),
-fileupload = document.getElementById('upload');
-
-"filereader formdata progress".split(' ').forEach(function (api) {
-    if (tests[api] === false) {
-        support[api].className = 'fail';
-    } else {
-        // FFS. I could have done el.hidden = true, but IE doesn't support
-        // hidden, so I tried to create a polyfill that would extend the
-        // Element.prototype, but then IE10 doesn't even give me access
-        // to the Element object. Brilliant.
-        support[api].className = 'hidden';
-    }
-});
-
-function previewfile(file) {
-    if (tests.filereader === true && acceptedTypes[file.type] === true) {
-        var reader = new FileReader();
-        reader.onload = function (event) {
-            var image = new Image();
-            image.src = event.target.result;
-            image.width = 250; // a fake resize
-            holder.appendChild(image);
-        };
-
-        reader.readAsDataURL(file);
-    }  else {
-        holder.innerHTML += '<p>Uploaded ' + file.name + ' ' + (file.size ? (file.size/1024|0) + 'K' : '');
-        console.log(file);
+var content = document.getElementById('content');
+function acceptedType(type) {
+    switch (type) {
+    case 'image/png': return true;
+    case 'image/jpeg': return true;
+    default: return false;
     }
 }
-
-function readfiles(files) {
-    debugger;
-    var formData = tests.formdata ? new FormData() : null;
-    for (var i = 0; i < files.length; i++) {
-        if (tests.formdata) formData.append('file', files[i]);
-        previewfile(files[i]);
+function openFile(file) {
+    if (!acceptedType(file.type)) {
+        throw "File has invalid type!";
     }
+    imagePane.classList.add('loading');
+    var reader = new FileReader();
+    reader.onload = function (event) {
+        var img = new Image();
+        img.src = event.target.result;
+        img.width = 250; // a fake resize
+        img.style.zoom = 1;
+        content.innerHTML = '';
+        content.appendChild(img);
+        imagePane.classList.remove('loading');
+    };
 
-    // now post a new XHR request
-    if (tests.formdata) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/devnull.php');
-        xhr.onload = function() {
-            progress.value = progress.innerHTML = 100;
-        };
-
-        if (tests.progress) {
-            xhr.upload.onprogress = function (event) {
-                if (event.lengthComputable) {
-                    var complete = (event.loaded / event.total * 100 | 0);
-                    progress.value = progress.innerHTML = complete;
-                }
-            }
-        }
-
-        xhr.send(formData);
-    }
+    reader.readAsDataURL(file);
 }
 
-if (tests.dnd) {
-    holder.ondragover = function () { this.className = 'hover'; return false; };
-    holder.ondragend = function () { this.className = ''; return false; };
-    holder.ondrop = function (e) {
-        this.className = '';
-        e.preventDefault();
-        readfiles(e.dataTransfer.files);
-    }
-} else {
-    fileupload.className = 'hidden';
-    fileupload.querySelector('input').onchange = function () {
-        readfiles(this.files);
+function offset(elm) {
+    var obj = elm.getBoundingClientRect();
+    return {
+        top: obj.top,
+        left: obj.left,
+        width: obj.width,
+        height: obj.height
     };
 }
 
+var imagePane = document.getElementById('image-pane');
+imagePane.ondragover = function () {
+    return false;
+};
+imagePane.ondragenter = function () {
+    this.classList.add('dragover');
+}
+imagePane.ondragleave = function () {
+    this.classList.remove('dragover');
+}
+imagePane.ondrop = function (e) {
+    this.classList.remove('dragover');
+    e.preventDefault();
+    var files = e.dataTransfer.files;
+    if (files.length < 1) throw "You must drop at least one file!";
+    if (files.length > 1) console.warn("Only first dropped image will be used!");
+    openFile(files[0]);
+}
+imagePane.onclick = function (e) {
+    var img = content.querySelector('img');
+    var canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    var c = canvas.getContext('2d');
+    c.drawImage(img, 0, 0);
+    var data = c.getImageData(0, 0, img.width, img.height);
+    var off = offset(img);
+    var x = Math.floor(e.pageX/img.style.zoom - off.left);
+    var y = Math.floor(e.pageY/img.style.zoom - off.top);
+    var off = ((data.width * y) + x) * 4;
+    data = data.data;
+    var r = data[off];
+    var g = data[off + 1];
+    var b = data[off + 2];
+    var a = data[off + 3];
+
+    var info = document.getElementById('info');
+    info.innerHTML = '#' + r.toString(16) + g.toString(16) + b.toString(16);
+}
+DragScrollable(imagePane);
+document.onmousewheel = function (e) {
+    if (e.altKey) {
+        e.preventDefault();
+        var img = content.querySelector('img');
+        if (img) {
+            var s = img.style;
+            var d = e.wheelDelta;
+            if (d < 0) {
+                s.zoom /= 2;
+            } else {
+                s.zoom *= 2;
+            }
+        }
+        console.log(e.wheelDelta);
+        return false;
+    }
+}
+
+function DragScrollable(elm) {
+    var prevX, prevY, prevClick, hasMoved;
+    elm.onmousedown = mouseDown;
+
+    function mouseDown(ev) {
+        if (event.which !== 1) return false;
+        prevX = event.clientX;
+        prevY = event.clientY;
+        document.onmousemove = mouseMove;
+        document.onmouseup = mouseUp;
+        hasMoved = false;
+        return false;
+    }
+
+    function mouseMove(ev) {
+        var dx = event.clientX - prevX;
+        var dy = event.clientY - prevY;
+        elm.scrollLeft -= dx;
+        elm.scrollTop -= dy;
+        prevX = event.clientX;
+        prevY = event.clientY;
+        hasMoved = true;
+    }
+
+    function mouseUp(ev) {
+        document.onmousemove = null;
+        document.onmouseup = null;
+        if (hasMoved) {
+            if (elm.onclick) {
+                prevClick = elm.onclick;
+                elm.onclick = null;
+            }
+        } else {
+            if (prevClick) {
+                elm.onclick = prevClick;
+            }
+        }
+    }
+}
 </script>
 </body>
 </html>
