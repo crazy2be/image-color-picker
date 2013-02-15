@@ -41,6 +41,10 @@ table {
     text-align: center;
     vertical-align: middle;
 }
+input {
+    width: 100px;
+    border: none;
+}
     </style>
 </head>
 
@@ -71,7 +75,6 @@ function openFile(file) {
     reader.onload = function (event) {
         var img = new Image();
         img.src = event.target.result;
-        img.width = 250; // a fake resize
         img.style.zoom = 1;
         content.innerHTML = '';
         content.appendChild(img);
@@ -128,7 +131,16 @@ imagePane.onclick = function (e) {
     var a = data[off + 3];
 
     var info = document.getElementById('info');
-    info.innerHTML = '#' + r.toString(16) + g.toString(16) + b.toString(16);
+    function hex(n) {
+        var h = Math.min(Math.max(n, 0), 255).toString(16);
+        if (h.length == 1) h = '0' + h;
+        return h;
+    }
+    info.innerHTML = '(' + x + ', ' + y + '): <br />';
+    var text = document.createElement('input');
+    text.value = '#' + hex(r) + hex(g) + hex(b);
+    info.appendChild(text);
+    text.select();
 }
 DragScrollable(imagePane);
 document.onmousewheel = function (e) {
