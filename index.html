@@ -44,16 +44,41 @@ table {
 input {
     width: 100px;
     border: none;
+    font-size: 25px;
+}
+img {
+    image-rendering: optimizeSpeed;
+}
+#zoom-in, #zoom-out {
+    position: absolute;
+    bottom: 0px;
+    width: 48px;
+    height: 48px;
+    background-position: center center;
+    background-repeat: no-repeat;
+    margin: 1px;
+}
+#zoom-in {
+    background-image: url(zoom_in.png);
+    left: 0px;
+}
+#zoom-out {
+    background-image: url(zoom_out.png);
+    right: 0px;
 }
     </style>
 </head>
 
 <body>
-    <div id="info"></div>
+    <div id="info">
+    <input id="hex">
+    <button id="zoom-in">
+    <button id="zoom-out">
+    </div>
     <div id="image-pane">
         <table>
             <tr>
-                <td id="content"></td>
+                <td id="content">Drop an image here to pick colors from it!</td>
             </tr>
         </table>
     </div>
@@ -66,32 +91,59 @@ function acceptedType(type) {
     default: return false;
     }
 }
+function calcZoom(canvas, img) {
+    return canvas.width / img.width;
+}
+function rgba(r, g, b, a) {
+    return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+}
+function drawImage(canvas, img) {
+    var c = canvas.getContext('2d');
+    var h = img.height;
+    var w = img.width;
+    var zoom = calcZoom(canvas, img);
+
+    c.drawImage(img, 0, 0);
+    var data = c.getImageData(0, 0, w, h).data;
+    c.clearRect(0, 0, w*zoom, h*zoom);
+
+    for (var x = 0; x < w; x++) {
+        for (var y = 0; y < h; y++) {
+            var i = (y*w + x) * 4;
+            var r = data[i];
+            var g = data[i + 1];
+            var b = data[i + 2];
+            var a = data[i + 3];
+            c.fillStyle = rgba(r, g, b, a);
+            c.fillRect(x*zoom, y*zoom, zoom, zoom);
+        }
+    }
+}
 function openFile(file) {
     if (!acceptedType(file.type)) {
         throw "File has invalid type!";
     }
     imagePane.classList.add('loading');
+    content.innerHTML = 'Loading...';
     var reader = new FileReader();
     reader.onload = function (event) {
         var img = new Image();
         img.src = event.target.result;
-        img.style.zoom = 1;
-        content.innerHTML = '';
-        content.appendChild(img);
+        img.onload = function () {
+            var canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            content.innerHTML = '';
+            content.appendChild(canvas);
+            canvas.redrawImage = function () {
+                drawImage(canvas, img);
+            }
+            canvas.redrawImage();
+        };
         imagePane.classList.remove('loading');
     };
 
     reader.readAsDataURL(file);
-}
-
-function offset(elm) {
-    var obj = elm.getBoundingClientRect();
-    return {
-        top: obj.top,
-        left: obj.left,
-        width: obj.width,
-        height: obj.height
-    };
 }
 
 var imagePane = document.getElementById('image-pane');
@@ -113,22 +165,20 @@ imagePane.ondrop = function (e) {
     openFile(files[0]);
 }
 imagePane.onclick = function (e) {
-    var img = content.querySelector('img');
-    var canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
+    var canvas = content.querySelector('canvas');
+
+    var off = canvas.getBoundingClientRect();
+    var x = Math.floor(e.pageX - off.left);
+    var y = Math.floor(e.pageY - off.top);
+
     var c = canvas.getContext('2d');
-    c.drawImage(img, 0, 0);
-    var data = c.getImageData(0, 0, img.width, img.height);
-    var off = offset(img);
-    var x = Math.floor(e.pageX/img.style.zoom - off.left);
-    var y = Math.floor(e.pageY/img.style.zoom - off.top);
-    var off = ((data.width * y) + x) * 4;
-    data = data.data;
-    var r = data[off];
-    var g = data[off + 1];
-    var b = data[off + 2];
-    var a = data[off + 3];
+    var data = c.getImageData(x, y, 1, 1).data;
+
+    var i = 0;//((canvas.width * y) + x) * 4;
+    var r = data[i];
+    var g = data[i + 1];
+    var b = data[i + 2];
+    var a = data[i + 3];
 
     var info = document.getElementById('info');
     function hex(n) {
@@ -136,27 +186,33 @@ imagePane.onclick = function (e) {
         if (h.length == 1) h = '0' + h;
         return h;
     }
-    info.innerHTML = '(' + x + ', ' + y + '): <br />';
-    var text = document.createElement('input');
+    var text = document.getElementById('hex');
     text.value = '#' + hex(r) + hex(g) + hex(b);
-    info.appendChild(text);
     text.select();
+}
+function zoomIn() {
+    var canvas = content.querySelector('canvas');
+    if (!canvas) return;
+    canvas.width *= 2;
+    canvas.height *= 2;
+    canvas.redrawImage();
+}
+document.getElementById('zoom-in').onclick = zoomIn;
+document.getElementById('zoom-out').onclick = zoomOut;
+function zoomOut() {
+    var canvas = content.querySelector('canvas');
+    if (!canvas) return;
+    canvas.width /= 2;
+    canvas.height /= 2;
+    canvas.redrawImage();
 }
 DragScrollable(imagePane);
 document.onmousewheel = function (e) {
     if (e.altKey) {
         e.preventDefault();
-        var img = content.querySelector('img');
-        if (img) {
-            var s = img.style;
-            var d = e.wheelDelta;
-            if (d < 0) {
-                s.zoom /= 2;
-            } else {
-                s.zoom *= 2;
-            }
-        }
-        console.log(e.wheelDelta);
+        var d = e.wheelDelta;
+        if (d > 0) zoomIn();
+        else zoomOut();
         return false;
     }
 }
