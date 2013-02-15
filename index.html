@@ -166,6 +166,7 @@ imagePane.ondrop = function (e) {
 }
 imagePane.onclick = function (e) {
     var canvas = content.querySelector('canvas');
+    if (!canvas) return;
 
     var off = canvas.getBoundingClientRect();
     var x = Math.floor(e.pageX - off.left);
