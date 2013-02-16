@@ -25,7 +25,7 @@
     -webkit-user-drag: none;
 }
 #image-pane.dragover {
-    border: 10px solid yellow;
+    border: 10px dashed yellow;
 }
 #image-pane.loading {
     background: #eee;
@@ -84,19 +84,17 @@ img {
     </div>
     <script>
 var content = document.getElementById('content');
-function acceptedType(type) {
-    switch (type) {
-    case 'image/png': return true;
-    case 'image/jpeg': return true;
-    default: return false;
-    }
-}
 function calcZoom(canvas, img) {
     return canvas.width / img.width;
 }
 function rgba(r, g, b, a) {
     return "rgba(" + r + "," + g + "," + b + "," + a + ")";
 }
+// We draw the image onto the canvas manually with a series of
+// small rectangles. Although this is significantly slower,
+// there is no other way to get properly pixilated image
+// scaling in all modern browsers (notably chrome does not
+// support it).
 function drawImage(canvas, img) {
     var c = canvas.getContext('2d');
     var h = img.height;
@@ -120,11 +118,17 @@ function drawImage(canvas, img) {
     }
 }
 function openFile(file) {
-    if (!acceptedType(file.type)) {
+    acceptedTypes = {
+        'image/png': true,
+        'image/jpeg': true,
+    };
+    if (!(file.type in acceptedTypes)) {
         throw "File has invalid type!";
     }
+
     imagePane.classList.add('loading');
     content.innerHTML = 'Loading...';
+
     var reader = new FileReader();
     reader.onload = function (event) {
         var img = new Image();
@@ -158,11 +162,9 @@ imagePane.ondragleave = function () {
 }
 imagePane.ondrop = function (e) {
     this.classList.remove('dragover');
-    e.preventDefault();
     var files = e.dataTransfer.files;
-    if (files.length < 1) throw "You must drop at least one file!";
-    if (files.length > 1) console.warn("Only first dropped image will be used!");
     openFile(files[0]);
+    return false;
 }
 imagePane.onclick = function (e) {
     var canvas = content.querySelector('canvas');
@@ -174,14 +176,11 @@ imagePane.onclick = function (e) {
 
     var c = canvas.getContext('2d');
     var data = c.getImageData(x, y, 1, 1).data;
+    var r = data[0];
+    var g = data[1];
+    var b = data[2];
+    var a = data[3];
 
-    var i = 0;//((canvas.width * y) + x) * 4;
-    var r = data[i];
-    var g = data[i + 1];
-    var b = data[i + 2];
-    var a = data[i + 3];
-
-    var info = document.getElementById('info');
     function hex(n) {
         var h = Math.min(Math.max(n, 0), 255).toString(16);
         if (h.length == 1) h = '0' + h;
@@ -191,6 +190,9 @@ imagePane.onclick = function (e) {
     text.value = '#' + hex(r) + hex(g) + hex(b);
     text.select();
 }
+
+document.getElementById('zoom-in').onclick = zoomIn;
+document.getElementById('zoom-out').onclick = zoomOut;
 function zoomIn() {
     var canvas = content.querySelector('canvas');
     if (!canvas) return;
@@ -198,8 +200,6 @@ function zoomIn() {
     canvas.height *= 2;
     canvas.redrawImage();
 }
-document.getElementById('zoom-in').onclick = zoomIn;
-document.getElementById('zoom-out').onclick = zoomOut;
 function zoomOut() {
     var canvas = content.querySelector('canvas');
     if (!canvas) return;
@@ -207,25 +207,23 @@ function zoomOut() {
     canvas.height /= 2;
     canvas.redrawImage();
 }
-DragScrollable(imagePane);
-document.onmousewheel = function (e) {
-    if (e.altKey) {
-        e.preventDefault();
-        var d = e.wheelDelta;
-        if (d > 0) zoomIn();
-        else zoomOut();
-        return false;
-    }
-}
 
+new DragScrollable(imagePane);
+// Makes an element scrollable by clicking and dragging
+// with the mouse.
 function DragScrollable(elm) {
-    var prevX, prevY, prevClick, hasMoved;
-    elm.onmousedown = mouseDown;
+    var prevX, prevY,
+        prevClick, prevMove, prevUp,
+        hasMoved;
+
+    elm.addEventListener('mousedown', mouseDown, false);
 
     function mouseDown(ev) {
-        if (event.which !== 1) return false;
-        prevX = event.clientX;
-        prevY = event.clientY;
+        if (ev.which !== 1) return false;
+        prevX = ev.clientX;
+        prevY = ev.clientY;
+        prevMove = document.onmousemove;
+        prevUp = document.onmouseup;
         document.onmousemove = mouseMove;
         document.onmouseup = mouseUp;
         hasMoved = false;
@@ -233,18 +231,18 @@ function DragScrollable(elm) {
     }
 
     function mouseMove(ev) {
-        var dx = event.clientX - prevX;
-        var dy = event.clientY - prevY;
+        var dx = ev.clientX - prevX;
+        var dy = ev.clientY - prevY;
         elm.scrollLeft -= dx;
         elm.scrollTop -= dy;
-        prevX = event.clientX;
-        prevY = event.clientY;
+        prevX = ev.clientX;
+        prevY = ev.clientY;
         hasMoved = true;
     }
 
     function mouseUp(ev) {
-        document.onmousemove = null;
-        document.onmouseup = null;
+        document.onmousemove = prevMove;
+        document.onmouseup = prevUp;
         if (hasMoved) {
             if (elm.onclick) {
                 prevClick = elm.onclick;
