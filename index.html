@@ -1,260 +1,277 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Image Color Picker</title>
-    <style>
+	<title>Image Color Picker</title>
+	<style>
+/* General styles */
+.panning,
+.panning * {
+	-webkit-user-select: none;
+	-webkit-user-drag: none;
+}
+
+/* Sidebar styles */
 #info {
-    position: absolute;
-    z-index: 10;
-    top: 0px;
-    left: 0px;
-    width: 100px;
-    bottom: 0px;
-    background: #ddd;
-    box-shadow: 3px 0px 3px #888;
+	position: absolute;
+	z-index: 10;
+	top: 0px;
+	left: 0px;
+	width: 100px;
+	bottom: 0px;
+	background: #ddd;
+	box-shadow: 3px 0px 3px #888;
 }
-#image-pane {
-    position: absolute;
-    top: 0px;
-    left: 100px;
-    right: 0px;
-    bottom: 0px;
-    overflow: auto;
-}
-#image-pane * {
-    -webkit-user-drag: none;
-}
-#image-pane.dragover {
-    border: 10px dashed yellow;
-}
-#image-pane.loading {
-    background: #eee;
-}
-#image-pane.loading img {
-    opacity: 0.25;
-}
-table {
-    width: 100%;
-    height: 100%;
-}
-#content {
-    text-align: center;
-    vertical-align: middle;
-}
-input {
-    width: 100px;
-    border: none;
-    font-size: 25px;
-}
-img {
-    image-rendering: optimizeSpeed;
+#info input {
+	width: 100px;
+	border: none;
+	font-size: 25px;
 }
 #zoom-in, #zoom-out {
-    position: absolute;
-    bottom: 0px;
-    width: 48px;
-    height: 48px;
-    background-position: center center;
-    background-repeat: no-repeat;
-    margin: 1px;
+	position: absolute;
+	bottom: 0px;
+	width: 48px;
+	height: 48px;
+	background-position: center center;
+	background-repeat: no-repeat;
+	margin: 1px;
 }
 #zoom-in {
-    background-image: url(zoom_in.png);
-    left: 0px;
+	background-image: url(zoom_in.png);
+	left: 0px;
 }
 #zoom-out {
-    background-image: url(zoom_out.png);
-    right: 0px;
+	background-image: url(zoom_out.png);
+	right: 0px;
 }
-    </style>
+
+/* Image pane styles */
+#image-pane {
+	position: absolute;
+	top: 0px;
+	left: 100px;
+	right: 0px;
+	bottom: 0px;
+	overflow: auto;
+	-webkit-user-drag: none;
+	-webkit-user-select: none;
+}
+#image-pane::-webkit-scrollbar {
+	width: 0px;
+	height: 0px;
+}
+#image-pane.dragover {
+	border: 10px dashed yellow;
+}
+#image-pane.loading {
+	background: #eee;
+}
+#image-pane.loading img {
+	opacity: 0.25;
+}
+#image-pane table {
+	width: 100%;
+	height: 100%;
+}
+#content {
+	text-align: center;
+	vertical-align: middle;
+}
+	</style>
 </head>
 
 <body>
-    <div id="info">
-    <input id="hex">
-    <button id="zoom-in">
-    <button id="zoom-out">
-    </div>
-    <div id="image-pane">
-        <table>
-            <tr>
-                <td id="content">Drop an image here to pick colors from it!</td>
-            </tr>
-        </table>
-    </div>
-    <script>
-var content = document.getElementById('content');
-function calcZoom(canvas, img) {
-    return canvas.width / img.width;
-}
-function rgba(r, g, b, a) {
-    return "rgba(" + r + "," + g + "," + b + "," + a + ")";
-}
+	<div id="info">
+	<input id="hex">
+	<button id="zoom-in">
+	<button id="zoom-out">
+	</div>
+	<div id="image-pane">
+		<table>
+			<tr>
+				<td id="content">Drop an image here to pick colors from it!</td>
+			</tr>
+		</table>
+	</div>
+	<script>
 // We draw the image onto the canvas manually with a series of
 // small rectangles. Although this is significantly slower,
 // there is no other way to get properly pixilated image
 // scaling in all modern browsers (notably chrome does not
 // support it).
 function drawImage(canvas, img) {
-    var c = canvas.getContext('2d');
-    var h = img.height;
-    var w = img.width;
-    var zoom = calcZoom(canvas, img);
+	var c = canvas.getContext('2d');
+	var h = img.height;
+	var w = img.width;
+	var zoom = canvas.width / img.width;
 
-    c.drawImage(img, 0, 0);
-    var data = c.getImageData(0, 0, w, h).data;
-    c.clearRect(0, 0, w*zoom, h*zoom);
+	c.drawImage(img, 0, 0);
+	var data = c.getImageData(0, 0, w, h).data;
+	c.clearRect(0, 0, w*zoom, h*zoom);
 
-    for (var x = 0; x < w; x++) {
-        for (var y = 0; y < h; y++) {
-            var i = (y*w + x) * 4;
-            var r = data[i];
-            var g = data[i + 1];
-            var b = data[i + 2];
-            var a = data[i + 3];
-            c.fillStyle = rgba(r, g, b, a);
-            c.fillRect(x*zoom, y*zoom, zoom, zoom);
-        }
-    }
+	for (var x = 0; x < w; x++) {
+		for (var y = 0; y < h; y++) {
+			var i = (y*w + x) * 4;
+			var r = data[i];
+			var g = data[i + 1];
+			var b = data[i + 2];
+			var a = data[i + 3];
+			c.fillStyle = rgba(r, g, b, a);
+			c.fillRect(x*zoom, y*zoom, zoom, zoom);
+		}
+	}
+	function rgba(r, g, b, a) {
+		return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+	}
+}
+var content = document.getElementById('content');
+function openDataURL(url) {
+	var img = new Image();
+	img.src = url;
+	img.onload = function () {
+		var canvas = document.createElement('canvas');
+		canvas.width = img.width;
+		canvas.height = img.height;
+		content.innerHTML = '';
+		content.appendChild(canvas);
+		canvas.redrawImage = function () {
+			drawImage(canvas, img);
+		}
+		canvas.redrawImage();
+	};
+	imagePane.classList.remove('loading');
 }
 function openFile(file) {
-    acceptedTypes = {
-        'image/png': true,
-        'image/jpeg': true,
-    };
-    if (!(file.type in acceptedTypes)) {
-        throw "File has invalid type!";
-    }
+	acceptedTypes = {
+		'image/png': true,
+		'image/jpeg': true,
+	};
+	if (!(file.type in acceptedTypes)) {
+		throw "File has invalid type!";
+	}
 
-    imagePane.classList.add('loading');
-    content.innerHTML = 'Loading...';
+	imagePane.classList.add('loading');
+	content.innerHTML = 'Loading...';
 
-    var reader = new FileReader();
-    reader.onload = function (event) {
-        var img = new Image();
-        img.src = event.target.result;
-        img.onload = function () {
-            var canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            content.innerHTML = '';
-            content.appendChild(canvas);
-            canvas.redrawImage = function () {
-                drawImage(canvas, img);
-            }
-            canvas.redrawImage();
-        };
-        imagePane.classList.remove('loading');
-    };
+	var reader = new FileReader();
+	reader.onload = function (event) {
+		openDataURL(event.target.result);
+	};
 
-    reader.readAsDataURL(file);
+	reader.readAsDataURL(file);
 }
 
 var imagePane = document.getElementById('image-pane');
 imagePane.ondragover = function () {
-    return false;
+	return false;
 };
 imagePane.ondragenter = function () {
-    this.classList.add('dragover');
+	this.classList.add('dragover');
 }
 imagePane.ondragleave = function () {
-    this.classList.remove('dragover');
+	this.classList.remove('dragover');
 }
 imagePane.ondrop = function (e) {
-    this.classList.remove('dragover');
-    var files = e.dataTransfer.files;
-    openFile(files[0]);
-    return false;
+	this.classList.remove('dragover');
+	var files = e.dataTransfer.files;
+	openFile(files[0]);
+	return false;
 }
 imagePane.onclick = function (e) {
-    var canvas = content.querySelector('canvas');
-    if (!canvas) return;
+	var canvas = content.querySelector('canvas');
+	if (!canvas) return;
 
-    var off = canvas.getBoundingClientRect();
-    var x = Math.floor(e.pageX - off.left);
-    var y = Math.floor(e.pageY - off.top);
+	var off = canvas.getBoundingClientRect();
+	var x = Math.floor(e.pageX - off.left);
+	var y = Math.floor(e.pageY - off.top);
 
-    var c = canvas.getContext('2d');
-    var data = c.getImageData(x, y, 1, 1).data;
-    var r = data[0];
-    var g = data[1];
-    var b = data[2];
-    var a = data[3];
+	var c = canvas.getContext('2d');
+	var data = c.getImageData(x, y, 1, 1).data;
+	var r = data[0];
+	var g = data[1];
+	var b = data[2];
+	var a = data[3];
 
-    function hex(n) {
-        var h = Math.min(Math.max(n, 0), 255).toString(16);
-        if (h.length == 1) h = '0' + h;
-        return h;
-    }
-    var text = document.getElementById('hex');
-    text.value = '#' + hex(r) + hex(g) + hex(b);
-    text.select();
+	function hex(n) {
+		var h = Math.min(Math.max(n, 0), 255).toString(16);
+		if (h.length == 1) h = '0' + h;
+		return h;
+	}
+	var text = document.getElementById('hex');
+	text.value = '#' + hex(r) + hex(g) + hex(b);
+	text.select();
 }
 
 document.getElementById('zoom-in').onclick = zoomIn;
 document.getElementById('zoom-out').onclick = zoomOut;
 function zoomIn() {
-    var canvas = content.querySelector('canvas');
-    if (!canvas) return;
-    canvas.width *= 2;
-    canvas.height *= 2;
-    canvas.redrawImage();
+	var canvas = content.querySelector('canvas');
+	if (!canvas) return;
+	canvas.width *= 2;
+	canvas.height *= 2;
+	canvas.redrawImage();
 }
 function zoomOut() {
-    var canvas = content.querySelector('canvas');
-    if (!canvas) return;
-    canvas.width /= 2;
-    canvas.height /= 2;
-    canvas.redrawImage();
+	var canvas = content.querySelector('canvas');
+	if (!canvas) return;
+	canvas.width /= 2;
+	canvas.height /= 2;
+	canvas.redrawImage();
 }
 
 new DragScrollable(imagePane);
 // Makes an element scrollable by clicking and dragging
 // with the mouse.
 function DragScrollable(elm) {
-    var prevX, prevY,
-        prevClick, prevMove, prevUp,
-        hasMoved;
+	var prevX, prevY,
+		prevClick, hasMoved;
 
-    elm.addEventListener('mousedown', mouseDown, false);
+	elm.addEventListener('mousedown', mouseDown, false);
 
-    function mouseDown(ev) {
-        if (ev.which !== 1) return false;
-        prevX = ev.clientX;
-        prevY = ev.clientY;
-        prevMove = document.onmousemove;
-        prevUp = document.onmouseup;
-        document.onmousemove = mouseMove;
-        document.onmouseup = mouseUp;
-        hasMoved = false;
-        return false;
-    }
+	function mouseDown(ev) {
+		if (ev.which !== 1) return;
+		document.onmousemove = mouseMove;
+		document.onmouseup = mouseUp;
+		document.body.classList.add('panning');
+		prevX = ev.clientX;
+		prevY = ev.clientY;
+		hasMoved = false;
+	}
 
-    function mouseMove(ev) {
-        var dx = ev.clientX - prevX;
-        var dy = ev.clientY - prevY;
-        elm.scrollLeft -= dx;
-        elm.scrollTop -= dy;
-        prevX = ev.clientX;
-        prevY = ev.clientY;
-        hasMoved = true;
-    }
+	function mouseMove(ev) {
+		console.log(prevX, prevY, ev.clientX, ev.clientY);
+		elm.scrollLeft += prevX - ev.clientX;
+		elm.scrollTop += prevY - ev.clientY;
+		prevX = ev.clientX;
+		prevY = ev.clientY;
+		hasMoved = true;
+		return false;
+	}
 
-    function mouseUp(ev) {
-        document.onmousemove = prevMove;
-        document.onmouseup = prevUp;
-        if (hasMoved) {
-            if (elm.onclick) {
-                prevClick = elm.onclick;
-                elm.onclick = null;
-            }
-        } else {
-            if (prevClick) {
-                elm.onclick = prevClick;
-            }
-        }
-    }
+	function mouseUp() {
+		document.onmousemove = null;
+		document.onmouseup = null;
+		document.body.classList.remove('panning');
+		// We only want to fire onclick if there was
+		// no move interleaving the mouseup and mousedown
+		// events.
+		if (hasMoved) {
+			if (elm.onclick) {
+				prevClick = elm.onclick;
+				elm.onclick = null;
+			}
+		} else {
+			if (prevClick) {
+				elm.onclick = prevClick;
+			}
+		}
+	}
 }
+
+// Testing shim
+// openDataURL("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAsCAMAAAAUyMtVAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAAAOFQTFRF////uLi4v8PEuMLCvsLEvsLEvMHBvsPEwMLFvsLEvsHEvsLE////vcLEuMrKvsPEv7+/vsLEvL/EvsLEvMHBvsLEvcHDvsLE3NzcwMPFuMTEvsLEuL6+vsLEvsHEvsLEvsLEvsLEvcHBvsLEAAAAv8PEvsLEuLi4v8PEwMDAvsPEwMTEvsLEvcLEvsLEv8PEvMDBv8LEvMDAvsLEvsLEvsLEvsLEvsHEwcHHvsLEvsPEvsLEvsHCvcHEvsLEvsLEvsLEvsLEv8PEu8DAvsDEvsLEvsLEvMHBvsPEvsLE////3QG6cgAAAEl0Uk5TAAaPE8DvJ9pB7WP5AogKrhrMMeNO83P8BZgQuyLWPOv7v1z4AYP+CacXxyzfSfFrbEot4MiohF0j17yZdE/05M2viWRC7tvBkF6Ou4sAAAABYktHRACIBR1IAAAACXBIWXMAAABIAAAASABGyWs+AAAA5UlEQVRIx5XV2U7CUABF0YMoqAwiKKCiKKC1OIGzghOO5/9/iJrGBxJM7j6PzV5JH25vpX+WWRBadnEJ9bm8EVheMQKrBRNQLNkElNeMQGXdCFRrRmBj0wjUGyaguWUTsL1jBFq7RmCvPdt7/2Du/vpO12FL897hUWCfgug4NE9B3A/vf8HJKegTcHZOeuuigXprQIGG8JWkyysIFF9DoOgGAvVu2dFIdleAAB9v6f5hFgR8oo8QqDmCQBqzaybZ0zMEqr5AoMorBCq/QaDiBALpnf2ykn18QqDcFwTKfkOgzM/851M5EfitcjbqmAAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAxMy0wMi0yMVQxNDo0MTo0NC0wNTowMN7OX7IAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMTMtMDItMjFUMTQ6NDE6NDQtMDU6MDCvk+cOAAAAAElFTkSuQmCC");
+// setTimeout(function () {
+// zoomIn();zoomIn();zoomIn();zoomIn();
+// }, 100);
 </script>
 </body>
 </html>
